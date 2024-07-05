@@ -1,0 +1,90 @@
+﻿@page "/consanguinity-simulator"
+@using WASM.Runner
+
+
+@code
+{
+    SimulationRunner Runner = new SimulationRunner();
+    Timer Timer;
+    public ConsanguinitySimulator()
+    {
+        Timer = new Timer(async (x) =>
+        {
+            await InvokeAsync(StateHasChanged);
+        }, null, 0, 250);
+        
+    }
+
+}
+
+<PageTitle>Consanguinity Simulator</PageTitle>
+
+<HeadContent>
+    <meta name="desc" content="Computer simulation for consanguinity"/>
+    <style>
+        #data {
+            font-family: Arial, Helvetica, sans-serif;
+            border-collapse: collapse;
+            width: 500px;
+            padding-bottom: 10px;
+        }
+
+        #data td, #data th {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        #data tr:nth-child(even){background-color: #f2f2f2;}
+
+        #data tr:hover {background-color: #ddd;}
+
+        #data th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: left;
+            background-color: #04AA6D;
+            color: white;
+        }
+        table.fixed { table-layout:fixed; }
+        table.fixed td { overflow: hidden; }
+    </style>
+</HeadContent>
+
+<h1>Simulator</h1>
+
+<br/>
+<table id="data" class="fixed">
+    <tbody>
+    <tr>
+        <th>Live</th>
+        <td>@Runner.LivePersons</td>
+    </tr>
+    <tr>
+        <th>Deceased</th>
+        <td>@Runner.DeceasedPersons</td>
+    </tr>
+    <tr>
+        <th>Inbred</th>
+        <td>@Runner.Inbred</td>
+    </tr>
+    <tr>
+        <th>Abnormalities</th>
+        <td>@Runner.GeneticAbnormalities</td>
+    </tr>
+    <tr>
+        <th>Recent Last Name</th>
+        <td>@Runner.LastName</td>
+    </tr>
+    </tbody>
+</table>
+
+
+<button class="btn btn-primary" @onclick="Start">Click me</button>
+
+@code {
+
+    private void Start()
+    {
+        Runner.Start();
+    }
+}
