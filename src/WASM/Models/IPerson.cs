@@ -5,4 +5,5 @@ public interface IPerson
     public int Age { get; }
     public IPerson? Mother { get; }
     public IPerson? Father { get; }
+    public int MateCount { get; }
 }

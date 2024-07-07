@@ -1,7 +1,6 @@
 using System.Collections;
 using Bogus;
 using Bogus.DataSets;
-using Microsoft.AspNetCore.Components;
 using WASM.Models;
 using WASM.Utils;
 using Random = System.Random;
@@ -26,35 +25,48 @@ public class SimulationRunner
 
     public Dictionary<int, List<Person>> PersonsByAge = new ();
 
-
     private Random Random { get; } = new ();
 
     public string LastName => Persons.LastOrDefault()?.Name ?? string.Empty;
-
-    public void Start()
+    
+    public void Start(SimulationConfig config)
     {
-        Initialize();
-        //ThreadPool.QueueUserWorkItem(Work);
+        Initialize(config);
         Task task = new Task(() => { Work(null); });
         task.Start();
     }
 
-    public void Initialize()
+    private void Initialize(SimulationConfig config)
     {
         Persons.Clear();
         PersonsAllTime = GeneticAbnormalities = LivePersons = DeceasedPersons = Inbred = 0;
 
-        int initialPopulation = 10;// Random.Next(2, 5);
-        Persons.AddRange(Enumerable.Range(0, initialPopulation).Select(x =>
-            FabricatePerson()).ToList());
+        var root = new RootParent();
+        
+        int initialPopulation = config.InitPopulation;
+        Persons.AddRange(Enumerable.Range(0, initialPopulation - config.InitDonors).Select(x =>
+            FabricatePerson(root)).ToList());
+
+        for (int i = 0; i < config.InitDonors; i++)
+        {
+            var faker = new Faker();
+            Persons.Add(new SpermDonor
+            {
+                Age = 17,
+                Mother = root,
+                Father = root,
+                FirstName = faker.Name.FirstName(Name.Gender.Male),
+                LastName = faker.Name.LastName(Name.Gender.Male)
+            });         
+        }
+        
         LivePersons = initialPopulation;
         PersonsAllTime = initialPopulation;
         Active = true;
     }
 
-    private IPerson FabricatePerson()
+    private IPerson FabricatePerson(IPerson root)
     {
-        var root = new RootParent();
         var person = new Person();
         return person.Gender == Name.Gender.Male
             ? new MalePerson
@@ -80,6 +92,29 @@ public class SimulationRunner
         Active = false;
     }
 
+    private void Mate(MalePerson male, FemalePerson female)
+    {
+        //var mate = men.First(m => m.Age >= 17 && !set.Contains(m)); //todo add shuffle
+        if (Roller.Roll(50))
+        {
+            var offspring = (BasePerson)(female).Mate(male);
+            if (offspring != null)
+            {
+                Persons.Add(offspring);
+                LivePersons++;
+                PersonsAllTime++;
+                if (offspring.Inbred)
+                {
+                    ++Inbred;
+                }
+                if (offspring.Abnormality)
+                {
+                    ++GeneticAbnormalities;
+                }
+            }
+        }
+    }
+    
     private async void Work(object state)
     {
         while (Active)
@@ -90,6 +125,7 @@ public class SimulationRunner
             Dictionary<IPerson, int> MateCount = new Dictionary<IPerson, int>();
 
             List<int> deceasedIndices = new List<int>();
+            
             int n = Persons.Count;
             while (n > 1)
             {
@@ -109,46 +145,40 @@ public class SimulationRunner
                     }
                 }
                 int curAge = ((BasePerson)current).Age++; //increase age
-
-                
-                
                 
                 bool death = Roller.Roll(curAge);
-
-            }
-
-            bool CanMate(IPerson a, IPerson b)
-            {
-                if (a.Age >= 17 && b.Age >= 17)
+                if (death)
                 {
-                    return a.Gender != b.Gender;
+                    deceasedIndices.Add(n);
                 }
-                return false;
+
             }
 
-            void Mate(MalePerson male, FemalePerson female)
+            foreach (int removal in deceasedIndices)
             {
-                //var mate = men.First(m => m.Age >= 17 && !set.Contains(m)); //todo add shuffle
-                if (Roller.Roll(50))
-                {
-                    //add other stuff
-                    var offspring = (BasePerson)(female).Mate(male);
-                    if (offspring != null)
-                    {
-                        Persons.Add(offspring);
-                        LivePersons++;
-                        PersonsAllTime++;
-                        if (offspring.Inbred)
-                        {
-                            ++Inbred;
-                        }
-                        if (offspring.Abnormality)
-                        {
-                            ++GeneticAbnormalities;
-                        }
-                    }
-                }
+                Persons.RemoveAt(removal);
+                DeceasedPersons++;
             }
+            
         }
+    }
+    
+    private bool CanMate(IPerson a, IPerson b)
+    {
+        if (a.MateCount > 5 && !(a is SpermDonor))
+        {
+            return false;
+        }
+
+        if (b.MateCount > 5 && !(b is SpermDonor))
+        {
+            return false;
+        }
+        
+        if (a.Age >= 17 && b.Age >= 17)
+        {
+            return a.Gender != b.Gender;
+        }
+        return false;
     }
 }

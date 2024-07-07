@@ -12,7 +12,8 @@ public abstract class BasePerson : IPerson
     public bool Inbred { get; set; }
     public int InbredDegree { get; set; } //TODO
     public bool Abnormality { get; set; }
-
+    public int MateCount { get; set; }
+    
     public bool RootParents => Mother is RootParent && Father is RootParent;
 
 }

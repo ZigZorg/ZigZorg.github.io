@@ -7,4 +7,5 @@ public class RootParent : IPerson
     public int Age => -1;
     public IPerson? Mother { get; } = null;
     public IPerson? Father { get; } = null;
+    public int MateCount { get; } = -1;
 }

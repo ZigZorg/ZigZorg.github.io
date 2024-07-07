@@ -40,7 +40,9 @@ public class FemalePerson : BasePerson
                 && (RootParents == false || other.RootParents == false);
 
             ret.Abnormality = Roller.Roll(ret.Inbred ? 4 : 2);
-            
+
+            MateCount++;
+            other.MateCount++;
             
             return ret;
         }

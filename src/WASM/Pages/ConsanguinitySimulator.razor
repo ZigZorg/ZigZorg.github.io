@@ -1,10 +1,13 @@
 ﻿@page "/consanguinity-simulator"
+@using WASM.Models
 @using WASM.Runner
+@using WASM.Utils
 
 
 @code
 {
-    SimulationRunner Runner = new SimulationRunner();
+    SimulationConfig CFG = new ();
+    SimulationRunner Runner = new ();
     Timer Timer;
     public ConsanguinitySimulator()
     {
@@ -12,7 +15,6 @@
         {
             await InvokeAsync(StateHasChanged);
         }, null, 0, 250);
-        
     }
 
 }
@@ -52,6 +54,12 @@
 
 <h1>Simulator</h1>
 
+<label for="donors">Init Donors</label>
+<input id="donors" type="number" @bind="CFG.InitDonors"/>
+
+<label for="population">Init Population</label>
+<input id="population" type="number" @bind="CFG.InitPopulation"/>
+
 <br/>
 <table id="data" class="fixed">
     <tbody>
@@ -75,16 +83,31 @@
         <th>Recent Last Name</th>
         <td>@Runner.LastName</td>
     </tr>
+    <tr>
+        <th>Init Donors</th>
+        <td>@CFG.InitDonors</td>
+    </tr>
+    <tr>
+        <th>Init Population</th>
+        <td>@CFG.InitPopulation</td>
+    </tr>
     </tbody>
 </table>
 
 
 <button class="btn btn-primary" @onclick="Start">Click me</button>
+<button class="btn btn-primary" @onclick="Test">Click me2</button>
+
 
 @code {
 
     private void Start()
     {
-        Runner.Start();
+        Runner.Start(CFG);
+    }
+
+    private void Test()
+    {
+        Console.WriteLine(Roller.RollDeath(CFG.InitDonors));
     }
 }
