@@ -3,18 +3,16 @@
 @using WASM.Runner
 @using WASM.Utils
 
-
 @code
 {
-    SimulationConfig CFG = new ();
-    SimulationRunner Runner = new ();
+    SimulationConfig CFG = new();
+    SimulationRunner Runner = new();
     Timer Timer;
+
     public ConsanguinitySimulator()
     {
-        Timer = new Timer(async (x) =>
-        {
-            await InvokeAsync(StateHasChanged);
-        }, null, 0, 250);
+        //Refresh display every 100ms
+        Timer = new Timer(async (x) => { await InvokeAsync(StateHasChanged); }, null, 0, 500);
     }
 
 }
@@ -24,26 +22,32 @@
 <HeadContent>
     <meta name="desc" content="Computer simulation for consanguinity"/>
     <style>
-        #data {
+        .data {
             font-family: Arial, Helvetica, sans-serif;
             border-collapse: collapse;
             width: 500px;
             padding-bottom: 10px;
         }
-
-        #data td, #data th {
+        .data td, .data th {
             border: 1px solid #ddd;
             padding: 8px;
         }
+        .data tr:nth-child(even){background-color: #f2f2f2;}
 
-        #data tr:nth-child(even){background-color: #f2f2f2;}
+        .data tr:hover {background-color: #ddd;}
 
-        #data tr:hover {background-color: #ddd;}
-
-        #data th {
+        .data th {
             padding-top: 12px;
             padding-bottom: 12px;
             text-align: left;
+        }
+        .blue-header th
+        {
+            background-color: #0420aa;
+            color: white;
+        }
+        .green-header th
+        {
             background-color: #04AA6D;
             color: white;
         }
@@ -54,50 +58,93 @@
 
 <h1>Simulator</h1>
 
-<label for="donors">Init Donors</label>
-<input id="donors" type="number" @bind="CFG.InitDonors"/>
-
-<label for="population">Init Population</label>
-<input id="population" type="number" @bind="CFG.InitPopulation"/>
+<h3>
+    State:
+    <span hidden="@(!Runner.Active)" style="font-weight:bold; color: green;">Active</span>
+    <span hidden="@(Runner.Active)" style="font-weight:bold; color: red;">Inactive</span>
+</h3>
 
 <br/>
-<table id="data" class="fixed">
+
+<label for="donors">Init Donors</label>
+<input id="donors" type="number" @bind="CFG.InitDonors"/>
+<br/>
+<label for="populationMale">Init Male Population</label>
+<input id="populationMale" type="number" @bind="CFG.InitMalePopulation"/>
+<br/>
+<label for="populationFemale">Init Female Population</label>
+<input id="populationFemale" type="number" @bind="CFG.InitFemalePopulation"/>
+
+<br/>
+<table class="data blue-header fixed">
     <tbody>
     <tr>
-        <th>Live</th>
-        <td>@Runner.LivePersons</td>
-    </tr>
-    <tr>
-        <th>Deceased</th>
-        <td>@Runner.DeceasedPersons</td>
-    </tr>
-    <tr>
-        <th>Inbred</th>
-        <td>@Runner.Inbred</td>
-    </tr>
-    <tr>
-        <th>Abnormalities</th>
-        <td>@Runner.GeneticAbnormalities</td>
-    </tr>
-    <tr>
-        <th>Recent Last Name</th>
-        <td>@Runner.LastName</td>
-    </tr>
-    <tr>
         <th>Init Donors</th>
-        <td>@CFG.InitDonors</td>
+        <td>@Runner.Metrics.InitDonors</td>
     </tr>
     <tr>
-        <th>Init Population</th>
-        <td>@CFG.InitPopulation</td>
+        <th>Init Male Population</th>
+        <td>@Runner.Metrics.InitMale</td>
+    </tr>
+    <tr>
+        <th>Init Female Population</th>
+        <td>@Runner.Metrics.InitFemale</td>
     </tr>
     </tbody>
 </table>
 
+<br/>
+<table id="data" class="data green-header fixed">
+    <tbody>
+    <tr>
+        <th>Persons All Time</th>
+        <td>@Runner.Metrics.PersonsAllTime</td>
+    </tr>
+    <tr>
+        <th>Live</th>
+        <td>@Runner.Metrics.LivePersons</td>
+    </tr>
+    <tr>
+        <th>Live Male</th>
+        <td>@Runner.Metrics.LiveMalePersons</td>
+    </tr>
+    <tr>
+        <th>Live Female</th>
+        <td>@Runner.Metrics.LiveFemalePersons</td>
+    </tr>
+    <tr>
+        <th>Live Donors</th>
+        <td>@Runner.Metrics.LiveDonors</td>
+    </tr>
+    <tr>
+        <th>Deceased</th>
+        <td>@Runner.Metrics.DeceasedPersons</td>
+    </tr>
+    <tr>
+        <th>Inbred</th>
+        <td>@Runner.Metrics.Inbred</td>
+    </tr>
+    <tr>
+        <th>Births</th>
+        <td>@Runner.Metrics.Births</td>
+    </tr>
+    <tr>
+        <th>Abnormalities</th>
+        <td>@Runner.Metrics.GeneticAbnormalities</td>
+    </tr>
+    <tr>
+        <th>Min Age</th>
+        <td>@Runner.Metrics.MinAge</td>
+    </tr>
+    <tr>
+        <th>Max Age</th>
+        <td>@Runner.Metrics.MaxAge</td>
+    </tr>
+    </tbody>
+</table>
 
-<button class="btn btn-primary" @onclick="Start">Click me</button>
-<button class="btn btn-primary" @onclick="Test">Click me2</button>
-
+<br/>
+<button style="width:500px;" class="btn btn-primary" @onclick="Start">Start</button>
 
 @code {
 
@@ -106,8 +153,4 @@
         Runner.Start(CFG);
     }
 
-    private void Test()
-    {
-        Console.WriteLine(Roller.RollDeath(CFG.InitDonors));
-    }
 }

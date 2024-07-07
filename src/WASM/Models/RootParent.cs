@@ -8,4 +8,5 @@ public class RootParent : IPerson
     public IPerson? Mother { get; } = null;
     public IPerson? Father { get; } = null;
     public int MateCount { get; } = -1;
+    public long BirthTick { get; } = -1;
 }

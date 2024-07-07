@@ -11,23 +11,14 @@ namespace WASM.Runner;
 
 public class SimulationRunner
 {
-    public double AverageAge { get; set; }
-    public int MaxAge { get; set; }
-    public int MinAge { get; set; }
-    public long LivePersons { get; private set; }
-    public long DeceasedPersons { get; private set; }
-    public long PersonsAllTime { get; private set; }
-    public long GeneticAbnormalities { get; private set; }
-    public long Inbred { get; private set; }
-    private bool Active { get; set; }
-
+    public bool Active { get; private set; } = false;
+    public SimulationMetrics Metrics { get; private set; }= new ();
     private List<IPerson> Persons { get; } = new ();
 
     public Dictionary<int, List<Person>> PersonsByAge = new ();
 
     private Random Random { get; } = new ();
-
-    public string LastName => Persons.LastOrDefault()?.Name ?? string.Empty;
+    
     
     public void Start(SimulationConfig config)
     {
@@ -39,13 +30,19 @@ public class SimulationRunner
     private void Initialize(SimulationConfig config)
     {
         Persons.Clear();
-        PersonsAllTime = GeneticAbnormalities = LivePersons = DeceasedPersons = Inbred = 0;
-
+        Metrics = new SimulationMetrics
+        {
+            InitDonors = config.InitDonors,
+            InitMale = config.InitMalePopulation,
+            InitFemale = config.InitFemalePopulation
+        };
+        
         var root = new RootParent();
         
-        int initialPopulation = config.InitPopulation;
-        Persons.AddRange(Enumerable.Range(0, initialPopulation - config.InitDonors).Select(x =>
-            FabricatePerson(root)).ToList());
+        Persons.AddRange(Enumerable.Range(1, config.InitMalePopulation).Select(x =>
+            FabricatePerson(root, Name.Gender.Male)).ToList());
+        Persons.AddRange(Enumerable.Range(1, config.InitFemalePopulation).Select(x =>
+            FabricatePerson(root, Name.Gender.Female)).ToList());
 
         for (int i = 0; i < config.InitDonors; i++)
         {
@@ -60,27 +57,29 @@ public class SimulationRunner
             });         
         }
         
-        LivePersons = initialPopulation;
-        PersonsAllTime = initialPopulation;
+        Metrics.LivePersons = config.InitDonors + config.InitMalePopulation + config.InitFemalePopulation;
+        Metrics.PersonsAllTime = Metrics.LivePersons;
         Active = true;
     }
 
-    private IPerson FabricatePerson(IPerson root)
+    private IPerson FabricatePerson(IPerson root, Name.Gender gender)
     {
-        var person = new Person();
-        return person.Gender == Name.Gender.Male
+        Faker faker = new Faker();
+        string firstName = faker.Name.FirstName(gender);
+        string lastName = faker.Name.LastName(gender);
+        return gender == Name.Gender.Male
             ? new MalePerson
             {
-                FirstName = person.FirstName,
-                LastName = person.LastName,
+                FirstName = firstName,
+                LastName = lastName,
                 Age = 17,
                 Mother = root,
                 Father = root
             }
             : new FemalePerson
             {
-                FirstName = person.FirstName,
-                LastName = person.LastName,
+                FirstName = firstName,
+                LastName = lastName,
                 Age = 17,
                 Mother = root,
                 Father = root
@@ -92,75 +91,131 @@ public class SimulationRunner
         Active = false;
     }
 
-    private void Mate(MalePerson male, FemalePerson female)
+    private bool Mate(MalePerson male, FemalePerson female, long tick)
     {
-        //var mate = men.First(m => m.Age >= 17 && !set.Contains(m)); //todo add shuffle
-        if (Roller.Roll(50))
+        if (Roller.Roll(50)) //roll for successful mating
         {
             var offspring = (BasePerson)(female).Mate(male);
             if (offspring != null)
             {
                 Persons.Add(offspring);
-                LivePersons++;
-                PersonsAllTime++;
+                
+                Metrics.Births++;
+                Metrics.LivePersons++;
+                Metrics.PersonsAllTime++;
+                
+                //TODO: add lookback up tree logic N parents
                 if (offspring.Inbred)
                 {
-                    ++Inbred;
+                    ++Metrics.Inbred;
                 }
                 if (offspring.Abnormality)
                 {
-                    ++GeneticAbnormalities;
+                    ++Metrics.GeneticAbnormalities;
                 }
+                return true;
             }
         }
+        return false;
     }
     
     private async void Work(object state)
     {
+        long tick = 0;
         while (Active)
         {
-            await Task.Delay(500);
-            
-            //HashSet<IPerson> set = new HashSet<IPerson>();
-            Dictionary<IPerson, int> MateCount = new Dictionary<IPerson, int>();
+            await Task.Delay(250);
 
-            List<int> deceasedIndices = new List<int>();
-            
-            int n = Persons.Count;
-            while (n > 1)
+            unsafe //rollover to 0 if max long value hit
             {
-                n--;
-                IPerson current = Persons[n--];
-                IPerson other = Persons[Random.Next(0, n)];
+                ++tick;
+            }
+            
+            List<int> deceasedIndices = new List<int>();
 
-                if (CanMate(current, other))
+            int cycleMinAge = Metrics.MaxAge;
+            int n = Persons.Count;
+            long liveMale = 0;
+            long liveDonor = 0;
+            long liveFemale = 0;
+            while (n > 0)
+            {
+                
+                IPerson current = Persons[--n];
+                if (n > 1)
                 {
-                    if (current is MalePerson mp)
+                    bool succeeded = false;
+                    for (int i = 0; i < 3 && !succeeded; i++)
                     {
-                        Mate(mp, (FemalePerson)other);
-                    }
-                    else if (current is FemalePerson fp)
-                    {
-                        Mate((MalePerson)other, fp);
+                        succeeded = AttemptMate(current, n, tick);
                     }
                 }
-                int curAge = ((BasePerson)current).Age++; //increase age
+
+                //TODO: Age from start tick of indiv
+                bool aged = (tick - current.BirthTick) % 10 == 0;
+                int curAge = aged ? ((BasePerson)current).Age++ : current.Age;
                 
-                bool death = Roller.Roll(curAge);
+                if (curAge > Metrics.MaxAge) Metrics.MaxAge = curAge;
+                if (curAge < cycleMinAge)
+                {
+                    cycleMinAge = curAge;
+                }
+                
+                bool death = !aged && Roller.RollDeath(curAge);
                 if (death)
                 {
                     deceasedIndices.Add(n);
                 }
-
+                else
+                {
+                    if (current.Gender == 'M')
+                    {
+                        ++liveMale;
+                        if (current is IDonor)
+                        {
+                            ++liveDonor;
+                        }
+                    }
+                    else
+                    {
+                        ++liveFemale;
+                    }
+                }
             }
-
+            
+            Metrics.MinAge = cycleMinAge;
+            Metrics.LiveMalePersons = liveMale;
+            Metrics.LiveFemalePersons = liveFemale;
+                
             foreach (int removal in deceasedIndices)
             {
                 Persons.RemoveAt(removal);
-                DeceasedPersons++;
+                Metrics.DeceasedPersons++;
+                Metrics.LivePersons--;
             }
-            
+
+            if (Persons.Count == 0)
+            {
+                Active = false; //terminate simulation
+            }
         }
+    }
+
+    private bool AttemptMate(IPerson current, int n, long tick)
+    {
+        IPerson other = Persons[Random.Next(0, n)];
+        if (CanMate(current, other))
+        {
+            if (current is MalePerson mp)
+            {
+                return Mate(mp, (FemalePerson)other, tick);
+            }
+            else if (current is FemalePerson fp)
+            {
+                return Mate((MalePerson)other, fp, tick);
+            }
+        }
+        return false;
     }
     
     private bool CanMate(IPerson a, IPerson b)
