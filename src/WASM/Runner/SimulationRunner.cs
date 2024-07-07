@@ -65,22 +65,22 @@ public class SimulationRunner
     private IPerson FabricatePerson(IPerson root, Name.Gender gender)
     {
         Faker faker = new Faker();
-        string firstName = faker.Name.FirstName(gender);
-        string lastName = faker.Name.LastName(gender);
+
+        var ret = NameGenerator.GetName(gender);
         return gender == Name.Gender.Male
             ? new MalePerson
             {
-                FirstName = firstName,
-                LastName = lastName,
-                Age = 17,
+                FirstName = ret.FirstName,
+                LastName = ret.LastName,
+                Age = 18,
                 Mother = root,
                 Father = root
             }
             : new FemalePerson
             {
-                FirstName = firstName,
-                LastName = lastName,
-                Age = 17,
+                FirstName = ret.FirstName,
+                LastName = ret.LastName,
+                Age = 18,
                 Mother = root,
                 Father = root
             };
@@ -95,7 +95,7 @@ public class SimulationRunner
     {
         if (Roller.Roll(50)) //roll for successful mating
         {
-            var offspring = (BasePerson)(female).Mate(male);
+            var offspring = (BasePerson)(female).Mate(male, tick);
             if (offspring != null)
             {
                 Persons.Add(offspring);

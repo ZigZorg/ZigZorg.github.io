@@ -3,16 +3,6 @@ namespace WASM.Utils;
 public static class Roller
 {
     private static Random Random = new Random();
-    private static double TotalWeight;
-
-    static Roller()
-    {
-        TotalWeight = 0;
-        foreach (var entry in DeathRate)
-        {
-            TotalWeight += entry.Value;
-        }
-    }
     
     public static bool Roll(float percentChance)
     {
